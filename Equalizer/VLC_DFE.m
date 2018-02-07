@@ -1,8 +1,5 @@
-%%
-%Volterra NLMS Equalyzer using PAM symbols, different evaluation of SNR and of
+%Volterra NLMS Equalizer using PAM symbols, different evaluation of SNR and of
 %the nonlinearity
-
-
 
 clear;
 clc;
@@ -12,7 +9,7 @@ addpath(['..' filesep 'VLC_Simulator' filesep]);
 addpath(['..' filesep 'VLC_Simulator' filesep 'LED Parameters']);
 
 load whiteLED_334-15.mat;
-
+load whiteLED_334-15_Param.mat
 %-------------------------Adaptive Filtering Parameters--------------------
 numberOfBits = 2;
 maxRuns = 15000;
@@ -183,4 +180,3 @@ save(['.' filesep 'resultsMSE' filesep 'testDFEEq.mat'],'wFinal','e3');
 
 rmpath(['..' filesep 'VLC_Simulator' filesep]);
 rmpath(['..' filesep 'VLC_Simulator' filesep 'LED Parameters']);
-

@@ -1,65 +1,40 @@
-%%
 %Volterra NLMS Equalyzer using PAM symbols, different evaluation of SNR and of
 %the nonlinearity
-
-
 
 clear;
 clc;
 close all;
 
-addpath(['..' filesep 'VLC Simulator' filesep]);
-addpath(['..' filesep 'VLC Simulator' filesep 'LED Parameters']);
+addpath(['..' filesep 'VLC_Simulator' filesep]);
+addpath(['..' filesep 'VLC_Simulator' filesep 'LED Parameters']);
 
 load whiteLED_334-15.mat;
 
 %-------------------------Adaptive Filtering Parameters--------------------
-
 numberOfBits = 2;
 N = 12;
 maxRuns = 15000;
 maxIt = 1000;
+mu = 0.8;
 gamma = 1e-12;
 SNR = 30;
-mu = 0.8;
-adapFiltLength = N;
 
-delayinSamples = 14; %delay caused by the filtering process
+adapFiltLength = (N^2+N)/2 + N;
+
+auxMatrix = triu(ones(N));
+[l1,l2] = find(auxMatrix);
+
+
+delayinSamples = 13;
 
 %-------------------------Adaptive Filtering Parameters--------------------
 
 
+%-------------------------LED Parameters-----------------------------------
 
-% %-------------------------LED Parameters-----------------------------------
-% maxLEDVoltage = 3.6; %500 mV
-% minLEDVoltage = 3;
-% maxLEDCurrent = 0.03; %500 mA
-% minLEDCurrent = 0.004; %500 mA
-% 
-% maxElectricalPower = maxLEDVoltage*maxLEDCurrent;
-% minElectricalPower = minLEDCurrent*minLEDVoltage;
-% 
-% ISat = ISat;
-% VB = 2.6; %minimum voltage for current flow 
-% nLED = n; %LED ideality factor
-% VT = 0.025; %Thermal voltage
-% 
-% halfAngleLED = deg2rad(15);
-% luminousIntensityLED = 21375; %milicandela
-% maxLuminousIntensityLED = 28500;%milicandela
-% 
-% maxCd = 28.5; %cd
-% minCd = 14.25; %cd
-% 
-% 
-% ledLuminousEfficacy = (maxCd - minCd)/(maxElectricalPower - minElectricalPower) ; %this electrical power is evaluated using current and voltage of the linear region of the I-V curve%
-% 
-% 
-% 
 Poptical = @(ledLuminousEfficacy,electricalPower,k) (ledLuminousEfficacy.*electricalPower)./((1 + (ledLuminousEfficacy.*electricalPower./(maxLuminousIntensityLED/1000)).^(2*k)).^(1/(2*k)));
-% 
-% %-------------------------LED Parameters-----------------------------------
 
+%-------------------------LED Parameters-----------------------------------
 
 
 %-------------------------Photodiode Parameters----------------------------
@@ -74,41 +49,36 @@ FOV = deg2rad(25);
 
 %-------------------------Pre Amplifier Parameters-------------------------
 
-% transimpedanceGain = 1;
-
 %-------------------------Pre Amplifier Parameters-------------------------
 
 
 %-------------------------Transmission Parameters--------------------------
 
-
-LEDfreqRespPoints = 1000;
-fs = 2e6;
-
 kNonLinearity = 2;
 
+LEDfreqRespPoints = 1000;
+
+fs = 2e6;
 
 theta = 0;
 phi = 0;
 
 H_0 = A/d^2 * (n+1)/(2*pi) * cos(phi)^n * cos(theta) * rectangularPulse(-1,1,theta/FOV);
 
-
-VDC = 3.25; 
+VDC = 3.25;
 maxAbsoluteValueModulation = 3;
 
 maxModulationIndex = (maxLEDVoltage - VDC)/VDC;
-
 modulationIndexVector = [0.05 0.075 0.1];
+
 
 %-------------------------Transmission Parameters--------------------------
 
 
 wFinal = zeros(length(modulationIndexVector),adapFiltLength);
-e3 = zeros(length(modulationIndexVector),maxRuns + adapFiltLength + 1);
+e3 = zeros(length(modulationIndexVector),maxRuns + delayinSamples + 1);
 
 for index = 1:length(modulationIndexVector)
-    
     modulationIndex = modulationIndexVector(index);
     
     if modulationIndex > maxModulationIndex
@@ -117,8 +87,10 @@ for index = 1:length(modulationIndexVector)
 
     maxVoltage = VDC*(1+modulationIndex);
     deltaV = maxVoltage - VDC;
- 
+
+   
     w2 = zeros(adapFiltLength,maxRuns,maxIt);
+    e2 = zeros(maxRuns + delayinSamples + 1,maxIt);
     
     for j = 1:maxIt
 
@@ -128,23 +100,22 @@ for index = 1:length(modulationIndexVector)
         convLength = length(pilot) + LEDfreqRespPoints -1;
         NFFT = 2^nextpow2(convLength);
 
-        VinFreq = fft(Vin,NFFT);
+        pilotFreq = fft(pilot,NFFT);
 
-        f = fs/2*linspace(0,1,NFFT/2 + 1) *2*pi;
+        f = fs/2*linspace(0,1,NFFT/2 + 1)*2*pi;
 
         w = [-fliplr(f(2:end-1)) f];
 
         LEDResp = freqRespLED(w);
 
-        filteredVinAux = real(ifft(VinFreq.*fftshift(LEDResp))); 
+        filteredVinAux = real(ifft(pilotFreq.*fftshift(LEDResp))); 
 
-        filteredVin = filteredVinAux(1:length(Vin));
+        filteredVin = filteredVinAux(1:length(pilot));
 
         VoltageConstant = modulationIndex*maxVoltage/((1+modulationIndex)*max(filteredVin));
 
-        Vin = filteredVin*VoltageConstant + VDC;
-        filteredVin = Vin;
-
+        filteredVin = filteredVin*VoltageConstant + VDC;
+            
         iLEDOutput = I_V_Fun(filteredVin,VT,nLED,ISat);
 
         eletricalPowerOutput = filteredVin.*iLEDOutput;
@@ -172,40 +143,46 @@ for index = 1:length(modulationIndexVector)
 
         w = zeros(adapFiltLength,maxRuns);
 
-        d = zeros(maxRuns + adapFiltLength + 1,1);
-        e = zeros(maxRuns + adapFiltLength + 1,1);
-        e2 = zeros(maxRuns + adapFiltLength + 1,maxIt);
+        d = zeros(maxRuns + delayinSamples + 1,1);
+        e = zeros(maxRuns + delayinSamples + 1,1);
         
-        for k = adapFiltLength:maxRuns + adapFiltLength + 1
+        for k = delayinSamples + 1:maxRuns + delayinSamples + 1
 
-            xAP = xAux(k:-1:k-N+1);
+            x = xAux(k:-1:k-N+1);
+
+            xTDLAux = zeros((N*N+N)/2,1);
+
+
+            for lIndex = 1:length(l1)
+                xTDLAux(lIndex,1) = x(l1(lIndex),1)*(x(l2(lIndex),1));
+            end
+            
+            
+            xConc = [x;xTDLAux];
+
 
             d(k) = (pilot(-delayinSamples + k + 1)); 
 
-            e(k) = d(k) - w(:,k)'*xAP;
 
-            w(:,k+1) = w(:,k) + mu*xAP*((xAP'*xAP+gamma*eye(L+1))\eye(L+1))*conj(e(k));
- 
+            e(k) = d(k) - w(:,k)'*xConc;
+
+            w(:,k+1) = w(:,k) + mu*xConc*((xConc'*xConc+gamma*eye(1))\eye(1))*conj(e(k));  
+
+
         end
         w2(:,:,j) = conj(w(:,1:maxRuns));
         e2(:,j) = abs(e).^2;
     end
 
     w3 = mean(w2,3);
-    
     wFinal(index,:) = w3(:,end);
 
     e3(index,:) = mean(e2,2);
 
 end
 
-      
-save(['.' filesep 'resultsMSE_VLC' filesep 'testeLinEq.mat'],'wFinal','e3');
 
+save(['.' filesep 'resultsMSE' filesep 'testVolterraEq.mat'],'wFinal','e3');
 
-rmpath(['..' filesep 'VLC Simulator' filesep]);
-rmpath(['..' filesep 'VLC Simulator' filesep 'LED Parameters']);
-
-
-
-
+rmpath(['..' filesep 'VLC_Simulator' filesep]);
+rmpath(['..' filesep 'VLC_Simulator' filesep 'LED Parameters']);

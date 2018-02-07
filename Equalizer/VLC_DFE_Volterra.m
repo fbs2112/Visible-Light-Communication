@@ -1,8 +1,5 @@
-%%
 %Volterra NLMS Equalyzer using PAM symbols, different evaluation of SNR and of
 %the nonlinearity
-
-
 
 clear;
 clc;
@@ -17,7 +14,7 @@ load whiteLED_334-15.mat;
 %-------------------------Adaptive Filtering Parameters--------------------
 numberOfBits = 2;
 maxRuns = 15000;
-maxIt = 100;
+maxIt = 1000;
 gamma = 1e-12;
 SNR = 30;
 mu = 0.8;

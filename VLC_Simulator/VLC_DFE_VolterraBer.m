@@ -1,4 +1,3 @@
-%%
 %Volterra NLMS Equalyzer using PAM symbols, different evaluation of SNR and of
 %the nonlinearity
 
@@ -8,24 +7,14 @@ clear;
 clc;
 close all;
 
-addpath(['..' filesep 'Equalyzer' filesep 'resultsMSE_VLC']);
+addpath(['..' filesep 'Equalizer' filesep 'resultsMSE']);
 addpath(['.' filesep 'LED Parameters']);
 
 load whiteLED_334-15.mat;
 
-load results32.mat;
+filterFile = 'testDFEVolterraEq';
+load([filterFile '.mat']);
 
-% load channel01.mat;
-
-
-
-% R = 0.56;
-% R = 1;
-% 
-% 
-% b0 = 1;
-% b1 = 0.5;
-% b2 = 0.05;
 
 %-------------------------Adaptive Filtering Parameters--------------------
 
@@ -35,22 +24,6 @@ numberOfBits = log2(M);
 
 blockLength = numberOfSymbols*numberOfBits;
 monteCarloLoops = 1000;
-
-% auxMatrix = triu(ones(N));
-% [l1,l2] = find(auxMatrix);
-% 
-% delayVector = N/2;
-
-
-% noisePower = 100;
-% % barGamma = 4*sqrt(5*noisePower);
-% 
-% barGamma = 0;
-% 
-% barGammaVector = 1;
-% N = 8;
-
-
 
 volterraFFFlag = 1;
 volterraFBFlag = 0;
@@ -73,12 +46,6 @@ auxMatrix = triu(ones(feedforwardLength));
 auxMatrix = triu(ones(feedbackLength));
 [l1FB,l2FB] = find(auxMatrix);
 
-
-% h = [1 0.2 -0.3];
-
-% delayVector = 3;
-% delayVector = round((length(h) + feedforwardLength)/2);
-
 if ~volterraFFFlag
     adaptfiltFF = feedforwardLength;
 end
@@ -87,12 +54,7 @@ if ~volterraFBFlag
     adaptfiltFB = feedbackLength;
 end
 
-    
-
 adapFiltLength = adaptfiltFF + adaptfiltFB;
-
-
-
 
 
 %-------------------------Adaptive Filtering Parameters--------------------
@@ -109,9 +71,6 @@ LEDArea = pi*(5e-3)^2;
 
 maxElectricalPower = maxLEDVoltage*maxLEDCurrent;
 minElectricalPower = minLEDCurrent*minLEDVoltage;
-% TOV = 0.2; 
-% eletrical2OpticalGain = 1; %eletrical to optical gain imposed by the LED
-
 ISat = ISat;
 VB = 2.6; %minimum voltage for current flow 
 nLED = n; %LED ideality factor
@@ -122,47 +81,17 @@ halfAngleLED = deg2rad(15);
 luminousIntensityLED = 21375; %milicandela
 maxLuminousIntensityLED = 28500;%milicandela
 
-% opticalPower = luminousIntensityLED*2*pi*(1-cos(halfAngleLED))/1000;
-
-% ledLuminousEfficacy = opticalPower/(3.2*10e-3); %this electrical power is evaluated using current and voltage of the linear region of the I-V curve%
 maxCd = 28.5;
 minCd = 14.25;
 
-
-
-
-% ledLuminousEfficacy = opticalPower/(3.2*10e-3); %this electrical power is evaluated using current and voltage of the linear region of the I-V curve%
 ledLuminousEfficacy = (maxCd - minCd)/(maxElectricalPower - minElectricalPower) ; %this electrical power is evaluated using current and voltage of the linear region of the I-V curve%
 
-
 fs = 2e6;
-
-% f = fs/2*linspace(0,1,1000) *2*pi;
-% 
-% w = [-fliplr(f(2:end-1)) f];
-% 
-% LEDResp = freqRespLED(w);
-
-
-
-
-%  NFFT = 2^nextpow2(length(LEDResp)); % Next power of 2 from length of y
-% %                 Y = fft(noise,length(LEDResp))/length(LEDResp);
-%                 f = fs/2*linspace(0,1,length(LEDResp));
-% 
-%                 % Plot single-sided amplitude spectrum.
-%                 figure;
-%                 plot(f,20*log10((LEDResp(1:length(LEDResp)))) )
-% 
 
 
 Poptical = @(ledLuminousEfficacy,electricalPower,k) (ledLuminousEfficacy.*electricalPower.*LEDArea)./((1 + (ledLuminousEfficacy.*electricalPower.*LEDArea./(maxLuminousIntensityLED.*LEDArea/1000)).^(2*k)).^(1/(2*k)));
 
 %-------------------------LED Parameters-----------------------------------
-
-
-
-
 
 %-------------------------Photodiode Parameters----------------------------
 
@@ -176,7 +105,7 @@ FOV = deg2rad(25);
 
 %-------------------------Pre Amplifier Parameters-------------------------
 
-transimpedanceGain = 10;
+transimpedanceGain = 10; %not used
 
 %-------------------------Pre Amplifier Parameters-------------------------
 
@@ -185,9 +114,6 @@ transimpedanceGain = 10;
 
 kNonLinearity = 2;
 
-
-% bitRate = 1e6; %1 Mb/s
-
 theta = 0;
 phi = 0;
 
@@ -195,13 +121,11 @@ n = -log(2)/log(cos(halfAngleLED));
 
 H_0 = A/d^2 * (n+1)/(2*pi) * cos(phi)^n * cos(theta) * rectangularPulse(-1,1,theta/FOV);
 
-
 VDC = 3.25; 
 maxAbsoluteValueModulation = 3;
 
 maxModulationIndex = (maxLEDVoltage - VDC)/VDC;
 
-% modulationIndexVector = 0.01:0.02:maxModulationIndex;
 modulationIndexVector = [0.05 0.075 0.1];
 
 %-------------------------Transmission Parameters--------------------------
@@ -210,9 +134,6 @@ SNR = 0:5:30;
 
 berAux = zeros(monteCarloLoops,1);
 ber = zeros(length(SNR),length(modulationIndexVector));
-
-
-
 
 for index = 1:length(modulationIndexVector)
     
@@ -225,34 +146,20 @@ for index = 1:length(modulationIndexVector)
     maxVoltage = VDC*(1+modulationIndex);
     deltaV = maxVoltage - VDC;
 
-
-%     VoltageConstant = modulationIndex*maxVoltage/((1+modulationIndex)*maxAbsoluteValueModulation);
-
-
     for barGammaIndex = 1:length(barGammaVector)
-        equalyzerFilter = squeeze(wFinal(index,1,1,:));
-
-%         equalyzerFilter = wFinal(:,18000);
-
+        equalizerFilter = wFinal(index,:).';
 
         for SNRIndex = 1:length(SNR)
 
-
             for j = 1:monteCarloLoops
                 j
-                equalyzedSignal = zeros(numberOfSymbols,1);
-
+                equalizedSignal = zeros(numberOfSymbols,1);
 
                 binaryInputData = randi([0,1],blockLength+100,1);
                 binaryInputData = reshape(binaryInputData,[],numberOfBits);
-%                 deciInputData = randi([0,M-1],2000,1);
                 deciInputData = bi2de(binaryInputData);    
                 pilot = real(pammod(deciInputData,2^numberOfBits,0,'gray'));
 
-%                     input = randi([0,2^numberOfBits-1],maxRuns*2,1);
-%                     pilot = pammod(input,2^numberOfBits,0,'gray');
-
-%                 Vin = pilot*VoltageConstant + VDC; %Using symbols to modulate voltage
                 Vin = pilot;
                 convLength = length(Vin) + 1000 -1;
                 NFFT = 2^nextpow2(convLength);
@@ -273,19 +180,8 @@ for index = 1:length(modulationIndexVector)
                 Vin = filteredVin*VoltageConstant + VDC;
                 filteredVin = Vin;
 
-%                 iLEDOutput = ledModel(I_V_Fun,Vin,maxLEDVoltage,kNonLinearity);
-
                 iLEDOutput = I_V_Fun(filteredVin,VT,nLED,ISat);
-
-%                 iLEDOutput = Vin;
-
-%                 iLEDOutput = 1;
-
                 eletricalPowerOutput = filteredVin.*iLEDOutput;
-
-
-
-%                 opticalPowerOutput = eletrical2OpticalGain*eletricalPowerOutput;
 
                 opticalPowerOutput = Poptical(ledLuminousEfficacy,eletricalPowerOutput,kNonLinearity);
 
@@ -301,8 +197,6 @@ for index = 1:length(modulationIndexVector)
                 powerNoise = (receivedCurrentSignalPower/db2pow(SNR(SNRIndex)));
                 n = n.*sqrt(powerNoise/powerNoiseAux);
 
-    %                 
-
                 receivedVoltageSignalAux = (receivedCurrentSignal + n);
                 receivedVoltageSignalAux = receivedVoltageSignalAux - mean(receivedVoltageSignalAux);
                 transimpedanceGain = maxAbsoluteValueModulation/max(receivedVoltageSignalAux);
@@ -312,13 +206,10 @@ for index = 1:length(modulationIndexVector)
 
                 xAux = [zeros(N-1,1);receivedVoltageSignal];
 
-
-
-%                 xAux = [zeros(feedforwardLength-1,1);xAux];
                 outputFB = zeros(length(pilot),1);
-            
-%             yAux = zeros(adaptfiltFB,1);
-
+                outputFF = zeros(length(pilot),1);
+                inputFB = zeros(feedbackLength,length(pilot));
+                
                 for k = feedforwardLength:length(pilot)
 
                     xFlip = xAux(k:-1:k-feedforwardLength+1);
@@ -339,23 +230,11 @@ for index = 1:length(modulationIndexVector)
                      if ~volterraFFFlag && ~volterraFBFlag 
                         xConc = x(:,k);
                      end
-
-
-            %         xTDLAux = [];
-
-    %                 xTDLConc = [xFlip;xTDLAux];
-
-                    outputFF(k) =  (equalyzerFilter(1:adaptfiltFF))'*xConc;
-                    equalyzedSignal(k,1) = pamHardThreshold(outputFF(k) + outputFB(k-1)); %MEXER AQUI
-                    
-%                     equalyzedSignal2(k,1) = (outputFF(k) + outputFB(k-1)); %MEXER AQUI
-                    
-        %                     equalyzedSignal(k,1) = pammod(pamdemod(outputFF(k) + outputFB(k-1),4,0,'gray'),4,0,'gray');
-                    
-    %                 outputFFSymb(k) = qammod(qamdemod(outputFF(k-1),2^numberOfBits,0,'gray'),2^numberOfBits,0,'gray');
-    %                 outputFFSymb(k) = signal2Symb(outputFF(k-1),signalPower);
-                    inputFB(:,k) = equalyzedSignal(k:-1:k-feedbackLength + 1); 
-
+                     
+                    outputFF(k) =  (equalizerFilter(1:adaptfiltFF))'*xConc;
+                    equalizedSignal(k,1) = pamHardThreshold(outputFF(k) + outputFB(k-1)); %MEXER AQUI
+                   
+                    inputFB(:,k) = equalizedSignal(k:-1:k-feedbackLength + 1); 
 
 
                     if volterraFBFlag
@@ -373,52 +252,27 @@ for index = 1:length(modulationIndexVector)
                         yHatConc = inputFB(:,k);
                     end
 
-                    outputFB(k) = (equalyzerFilter(adaptfiltFF+1:end))'*yHatConc;
-
-    %                 equalyzedSignal(k,1) = outputFF(k) + outputFB;
-
+                    outputFB(k) = (equalizerFilter(adaptfiltFF+1:end))'*yHatConc;
 
                 end
-%                 equalyzedSignal2 = (equalyzedSignal - VDC)/VoltageConstant;
                 
-               [corr,lags] = xcorr(equalyzedSignal,xAux(N:end));
+               [corr,lags] = xcorr(equalizedSignal,xAux(N:end));
                [~,idx] = max(abs(corr));
                delay = abs(lags(idx));
 
-            %     equalyzedSignal = equalyzedSignal(1:1000,:);
-%                equalyzedSignal = 
-               decDemodSignal = pamdemod(equalyzedSignal,2^numberOfBits,0,'gray');
-               
-%                berAux(j) = sum(sum(abs(equalyzedSignal(delay+1:(blockLength/2) + delay,:) - pilot(1:(blockLength/2),:))))./blockLength;
+               decDemodSignal = pamdemod(equalizedSignal,2^numberOfBits,0,'gray');
                binaryOutputData = de2bi(decDemodSignal,numberOfBits);
-
-
-%                berAux(j) = sum(sum(abs(binaryOutputData(delay+1 + 100:(blockLength/2) + delay - 100,:) - binaryInputData(1+50:(blockLength/2) - 100 - 50,:))))./800;
-               berAux(j) = sum(sum(abs(binaryOutputData(delay+1:(blockLength/2) + delay,:) - binaryInputData(1:(blockLength/2),:))))./blockLength;
-%                berAux(j) = sum(sum(abs(binaryOutputData(delay+1:end,:) - binaryInputData(1:end-delay,:))))./blockLength;
-               
+               berAux(j) = sum(sum(abs(binaryOutputData(delay+1:(blockLength/2) + delay,:) - binaryInputData(1:(blockLength/2),:))))./blockLength;               
             end
             
             
             ber(index,SNRIndex) = mean(berAux);
            
-
         end
-   
-
-    end
+   end
 
 end
 
-
-
-save(['.' filesep 'resultsBER' filesep 'resultsBER24.mat'],'ber','SNR');
-
-
-
-rmpath(['..' filesep 'Equalyzer' filesep 'resultsMSE_VLC']);
+save(['.' filesep 'resultsBER' filesep filterFile '_BER.mat'],'ber','SNR');
+rmpath(['..' filesep 'Equalizer' filesep 'resultsMSE']);
 rmpath(['.' filesep 'LED Parameters']);
-
-
-
-
