@@ -1,2 +1,2 @@
 # Visible-Light-Communication
-VLC simulator on MATLAB.
+VLC simulator in MATLAB.
